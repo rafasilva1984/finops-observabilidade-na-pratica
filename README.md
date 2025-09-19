@@ -1,85 +1,98 @@
-# 💰 FinOps na Prática com Observabilidade — Zero Deps (sem Python/jq)
+# 📊 FinOps Observability – Dashboard Completo
 
-Projeto didático para o canal **Observabilidade na Prática – By Rafa Silva**.
-Tudo pronto para rodar **sem Python** e **sem jq**: basta Docker, curl e bash ou PowerShell.
-
-> ⚠️ Ambiente **educacional**: sem TLS e sem autenticação; `curl -k` por padrão. **Não use em produção.**
-
-## ✅ O que vem pronto
-- `docker-compose` com Elasticsearch 8.15 e Kibana.
-- Dataset **realista** já pronto em `data/finops_bulk.ndjson` (~12k documentos).
-- Scripts de carga:
-  - `scripts/load_data.sh` (bash, Linux/macOS/Git Bash)
-  - `scripts/load_data.ps1` (PowerShell/Windows)
-- Index template mapeado (`finops-template`).
-- Guia de dashboards e teleprompter para a aula.
+Este repositório demonstra como aplicar **práticas de FinOps e Observabilidade** em um ambiente simulado com **Elasticsearch + Kibana**.  
+Aqui você terá **dados realistas**, scripts de ingestão e **dashboards Lens** totalmente automatizados via API.
 
 ---
 
-## ▶️ Como usar
+## 🎯 Objetivo
 
-### 1) Subir o ambiente
+- Simular **custos de serviços** (day/hour), SLAs, CPU/Memória, eficiência, etc.  
+- Visualizar métricas em **dashboards impactantes**.  
+- Ensinar **FinOps + Observabilidade na prática** com dados ricos para análise.  
+- Provisionar tudo via **scripts automáticos** (sem erros de import manual no Kibana).
+
+---
+
+## 🧱 Estrutura do Projeto
+
+| Pasta              | Conteúdo                                                                 |
+|--------------------|--------------------------------------------------------------------------|
+| `docker/`          | Docker Compose para subir **Elasticsearch + Kibana**                     |
+| `data/`            | Arquivos `NDJSON` com dados simulados para ingestão                      |
+| `scripts/`         | Scripts de automação (`load_data.sh`, `provision_kibana.sh`, `all_in_one.sh`, `load_data.ps1`) |
+
+---
+
+## 🚀 Como rodar
+
+### TL;DR – Um comando só
+```bash
+bash scripts/all_in_one.sh
+```
+
+No **Windows (PowerShell)**:
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/load_data.ps1
+```
+
+---
+
+## ⚙️ Passos detalhados
+
+### 1. Subir o ambiente
 ```bash
 cd docker
 docker compose up -d
 ```
-Aguarde o Kibana em **http://localhost:5601**.
+> Isso sobe **Elasticsearch 8.x** e **Kibana 8.x**
 
-### 2) Carregar dados (escolha um)
-
-**Bash (Linux/macOS/Git Bash):**
+### 2. Carregar os dados simulados
 ```bash
 bash scripts/load_data.sh
 ```
 
-**PowerShell (Windows):**
-```powershell
-.\scripts\load_data.ps1
-```
-
-### 3) Criar Data View
-Kibana → *Stack Management* → *Data Views* → **Create**
-- **Name:** `finops-*`
-- **Time field:** `@timestamp`
-
----
-
-## 📊 Dashboards (proposta de painéis)
-
-1. **Visão Geral**
-   - *Metric:* `sum(cost_day)` (mensal)
-   - *Line:* `sum(cost_day)` por `@timestamp` (date histogram)
-   - *Gauge:* `avg(sla_observed_pct)`
-
-2. **Pareto 80/20**
-   - *Bar horizontal:* `sum(cost_day)` por `service` (Top 10)
-
-3. **Mapa de Eficiência**
-   - *Heatmap:* X=`cpu_pct`, Y=`cost_hour`, Value=`avg(efficiency_score)`
-
-4. **Ranking de Ineficiência**
-   - *Table:* `service`, `sum(cost_day)`, `avg(cpu_pct)`, `avg(mem_pct)`, `avg(sla_observed_pct)`, `avg(efficiency_score)`
-
-5. **Projeção de Custos**
-   - *Line:* `sum(cost_day)` (últimos 30 dias) – explique extrapolação
-
-6. **Custo por Cluster/Time**
-   - *Treemap/Pie:* `sum(cost_day)` por `cluster` ou `team`
-
----
-
-## 🧪 Scripts úteis
+### 3. Provisionar objetos no Kibana
+Agora tudo é feito **via API**:
 ```bash
-# reset (limpa índice e template)
-bash scripts/reset_env.sh
+bash scripts/provision_kibana.sh http://localhost:5601
 ```
+> O script cria automaticamente:
+> - Data View `finops-data-view-v2`  
+> - Visualizações Lens (Total Cost, SLA avg, Cost Trend, Pareto, Cluster Cost, Inefficiency Ranking)  
+> - Dashboard **FinOps – Visão Geral (Lens, v2)**
+
+### 4. Abrir o Dashboard
+- Acesse: [http://localhost:5601](http://localhost:5601)  
+- Vá em **Dashboard → FinOps – Visão Geral (Lens, v2)**  
 
 ---
 
-## 🎤 Teleprompter da Aula
-Veja `docs/teleprompter.md` para o roteiro completo da gravação.
+## 📊 O que você verá
+
+- **Total Cost** – métrica agregada  
+- **Cost Trend** – evolução temporal  
+- **SLA Observed (avg)** – SLA médio observado  
+- **Pareto – Top 10 Services by Cost** – análise 80/20 dos custos  
+- **Cost by Cluster** – comparação entre clusters  
+- **Ranking de Ineficiência** – tabela com CPU/Mem/SLA/Eficiência  
 
 ---
 
-## 🔐 Nota
-Em produção, habilite **X-Pack Security** e certificados. Aqui mantemos simplificado para acelerar o aprendizado.
+## 🔑 Observações importantes
+
+- Todos os **scripts usam `-k` (ignorar SSL)** por padrão → ok em **labs**, não recomendado em produção.  
+- IDs das visus e dashboards terminam com `-v2` → evitam conflito com versões anteriores.  
+- As métricas agora usam **Lens Formula** (`sum(cost_day)`, `average(sla_observed_pct)`) → não quebram ao importar.  
+
+---
+
+## 🎓 Próximos passos
+
+- Adicionar **Heatmap de Eficiência** e filtro global `env:prod` no dashboard.  
+- Integrar com **outros datasets** (Cloud billing, logs reais).  
+- Publicar como aula do curso **Observabilidade na Prática**.
+
+---
+
+👉 Agora está 100% reproduzível: basta rodar `all_in_one.sh` que o ambiente sobe, dados são carregados e dashboard aparece pronto no Kibana.
