@@ -204,35 +204,4 @@ create "lens" "lens-inefficiency-table-v815" '{
   "references": ['"$REF1"','"$REFL"']
 }'
 
-# 8) Dashboard (com panelsJSON devidamente escapado)
-read -r -d '' PANELS_JSON <<'JSON' || true
-[
-  {"panelIndex":"1","gridData":{"x":0,"y":0,"w":12,"h":6,"i":"1"},"type":"visualization","id":"viz-total-cost","embeddableConfig":{}},
-  {"panelIndex":"2","gridData":{"x":12,"y":0,"w":24,"h":12,"i":"2"},"type":"lens","id":"lens-cost-trend-v815","embeddableConfig":{}},
-  {"panelIndex":"3","gridData":{"x":0,"y":6,"w":12,"h":6,"i":"3"},"type":"visualization","id":"viz-sla-avg","embeddableConfig":{}},
-  {"panelIndex":"4","gridData":{"x":0,"y":12,"w":18,"h":14,"i":"4"},"type":"lens","id":"lens-pareto-v815","embeddableConfig":{}},
-  {"panelIndex":"5","gridData":{"x":18,"y":12,"w":18,"h":14,"i":"5"},"type":"lens","id":"lens-cost-by-cluster-v815","embeddableConfig":{}},
-  {"panelIndex":"6","gridData":{"x":0,"y":26,"w":36,"h":14,"i":"6"},"type":"lens","id":"lens-inefficiency-table-v815","embeddableConfig":{}}
-]
-JSON
-PANELS_ESC=$(printf '%s' "$PANELS_JSON" | tr -d '\n' | sed 's/"/\\"/g')
-
-create "dashboard" "dash-finops-oneclick-v1" "{
-  \"attributes\":{
-    \"title\":\"FinOps – One-Click (8.15)\",
-    \"optionsJSON\":\"{\\\"useMargins\\\":true,\\\"hidePanelTitles\\\":false}\",
-    \"timeRestore\":false,\"timeTo\":\"now\",\"timeFrom\":\"now-90d\",
-    \"refreshInterval\":{\"pause\":true,\"value\":0},\"version\":1,
-    \"panelsJSON\":\"$PANELS_ESC\"
-  },
-  \"references\":[
-    {\"type\":\"visualization\",\"id\":\"viz-total-cost\",\"name\":\"panel_1\"},
-    {\"type\":\"lens\",\"id\":\"lens-cost-trend-v815\",\"name\":\"panel_2\"},
-    {\"type\":\"visualization\",\"id\":\"viz-sla-avg\",\"name\":\"panel_3\"},
-    {\"type\":\"lens\",\"id\":\"lens-pareto-v815\",\"name\":\"panel_4\"},
-    {\"type\":\"lens\",\"id\":\"lens-cost-by-cluster-v815\",\"name\":\"panel_5\"},
-    {\"type\":\"lens\",\"id\":\"lens-inefficiency-table-v815\",\"name\":\"panel_6\"}
-  ]
-}"
-
 green "Tudo criado! Abra: $KIBANA_URL/app/dashboards#/view/dash-finops-oneclick-v1"
