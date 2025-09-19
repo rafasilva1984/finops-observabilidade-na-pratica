@@ -31,7 +31,7 @@ bash scripts/all_in_one.sh
 
 ### 2) Provisionar objetos no Kibana
 ```bash
-bash scripts/oneclick_provision_direct.sh http://localhost:5601
+bash scripts/oneclick_import.sh http://localhost:5601
 ```
 
 Isso cria **data view + visualizações** (mas não o dashboard).
@@ -73,7 +73,7 @@ Isso cria **data view + visualizações** (mas não o dashboard).
 
 ### Reimportar objetos (sobrescrevendo existentes)
 ```bash
-bash scripts/oneclick_provision_direct.sh http://localhost:5601
+bash scripts/oneclick_import.sh http://localhost:5601
 ```
 
 ### Remover tudo
