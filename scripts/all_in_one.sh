@@ -17,9 +17,12 @@ done
 echo "[3/5] Carregando dados no Elasticsearch..."
 bash scripts/load_data.sh
 
-echo "[4/5] Provisionando Data View, Lens e Dashboard via API do Kibana..."
+echo "[4/5] Importando dashboard e visus (One-Click, 8.15)..."
+bash scripts/oneclick_import.sh "${KIBANA_URL:-http://localhost:5601}"
+
+echo "[5/5] Provisionando Data View, Lens e Dashboard via API do Kibana..."
 bash scripts/provision_kibana.sh "$KIBANA_URL"
 
-echo "[5/5] Pronto! Abra:"
+echo "[6/5] Pronto! Abra:"
 echo "  - Kibana: $KIBANA_URL"
 echo "  - Dashboard: $KIBANA_URL/app/dashboards#/view/dash-finops-visao-geral-lens-v2"
