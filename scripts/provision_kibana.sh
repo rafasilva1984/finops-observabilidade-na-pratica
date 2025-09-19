@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# provision_kibana_v2.sh — cria Data View, Lens e Dashboard com "panelsJSON" corretamente escapado (sem quebras de linha cruas)
 set -euo pipefail
 KIBANA_URL="${1:-http://localhost:5601}"
 
@@ -22,20 +23,27 @@ api() {
 create_so() {
   local type="$1" id="$2" body="$3"
   blue "Criando $type/$id ..."
-  # apaga se existir (evita conflito)
   api "DELETE" "/api/saved_objects/$type/$id" "" >/dev/null 2>&1 || true
+  local code
   code=$(api "POST" "/api/saved_objects/$type/$id" "$body")
-  if [[ "$code" =~ ^20[0-9]$ ]]; then green "OK ($type/$id)"; else red "Falhou ($type/$id)"; head -c 2000 /tmp/kbn_resp.json; echo; exit 1; fi
+  if [[ "$code" =~ ^20[0-9]$ ]]; then
+    green "OK ($type/$id)"
+  else
+    red "Falhou ($type/$id) HTTP $code"
+    echo "Resposta:"
+    head -c 2000 /tmp/kbn_resp.json; echo
+    exit 1
+  fi
 }
 
 # 0) health
 code=$(api "GET" "/api/status" "")
 [[ "$code" == "200" ]] || { red "Kibana não respondeu 200 em /api/status ($code)"; exit 1; }
 
-# 1) Data View (index-pattern) – simples e compat
+# 1) Data View (index-pattern)
 create_so "index-pattern" "finops-data-view-v2" '{"attributes":{"title":"finops-*","timeFieldName":"@timestamp"}}'
 
-# Refs para Lens
+# Refs comuns para Lens
 REF1='{"type":"index-pattern","id":"finops-data-view-v2","name":"indexpattern-datasource-current-indexpattern"}'
 REFL='{"type":"index-pattern","id":"finops-data-view-v2","name":"indexpattern-datasource-layer-layer-1"}'
 
@@ -149,28 +157,38 @@ create_so "lens" "lens-inefficiency-table-v2" '{
   "references": ['"$REF1"','"$REFL"']
 }'
 
-# 8) Dashboard
-create_so "dashboard" "dash-finops-visao-geral-lens-v2" '{
-  "attributes":{
-    "title":"FinOps – Visão Geral (Lens, v2)",
-    "optionsJSON":"{\"useMargins\":true,\"hidePanelTitles\":false}",
-    "timeRestore":false,"timeTo":"now","timeFrom":"now-30d",
-    "refreshInterval":{"pause":true,"value":0},"version":1,
-    "panelsJSON":"[
-      {\"panelIndex\":\"1\",\"gridData\":{\"x\":0,\"y\":0,\"w\":12,\"h\":6,\"i\":\"1\"},\"type\":\"lens\",\"id\":\"lens-total-cost-v2\",\"embeddableConfig\":{}},
-      {\"panelIndex\":\"2\",\"gridData\":{\"x\":12,\"y\":0,\"w\":24,\"h\":12,\"i\":\"2\"},\"type\":\"lens\",\"id\":\"lens-cost-trend-v2\",\"embeddableConfig\":{}},
-      {\"panelIndex\":\"3\",\"gridData\":{\"x\":0,\"y\":6,\"w\":12,\"h\":6,\"i\":\"3\"},\"type\":\"lens\",\"id\":\"lens-sla-avg-v2\",\"embeddableConfig\":{}},
-      {\"panelIndex\":\"4\",\"gridData\":{\"x\":0,\"y\":12,\"w\":18,\"h\":14,\"i\":\"4\"},\"type\":\"lens\",\"id\":\"lens-pareto-v2\",\"embeddableConfig\":{}},
-      {\"panelIndex\":\"5\",\"gridData\":{\"x\":18,\"y\":12,\"w\":18,\"h\":14,\"i\":\"5\"},\"type\":\"lens\",\"id\":\"lens-cost-by-cluster-v2\",\"embeddableConfig\":{}},
-      {\"panelIndex\":\"6\",\"gridData\":{\"x\":0,\"y\":26,\"w\":36,\"h\":14,\"i\":\"6\"},\"type\":\"lens\",\"id\":\"lens-inefficiency-table-v2\",\"embeddableConfig\":{}}
-    ]"
+# 8) Painéis do dashboard (gera string JSON compacta e escapa para campo panelsJSON)
+PANELS_JSON=$(cat <<'JSON'
+[
+  {"panelIndex":"1","gridData":{"x":0,"y":0,"w":12,"h":6,"i":"1"},"type":"lens","id":"lens-total-cost-v2","embeddableConfig":{}},
+  {"panelIndex":"2","gridData":{"x":12,"y":0,"w":24,"h":12,"i":"2"},"type":"lens","id":"lens-cost-trend-v2","embeddableConfig":{}},
+  {"panelIndex":"3","gridData":{"x":0,"y":6,"w":12,"h":6,"i":"3"},"type":"lens","id":"lens-sla-avg-v2","embeddableConfig":{}},
+  {"panelIndex":"4","gridData":{"x":0,"y":12,"w":18,"h":14,"i":"4"},"type":"lens","id":"lens-pareto-v2","embeddableConfig":{}},
+  {"panelIndex":"5","gridData":{"x":18,"y":12,"w":18,"h":14,"i":"5"},"type":"lens","id":"lens-cost-by-cluster-v2","embeddableConfig":{}},
+  {"panelIndex":"6","gridData":{"x":0,"y":26,"w":36,"h":14,"i":"6"},"type":"lens","id":"lens-inefficiency-table-v2","embeddableConfig":{}}
+]
+JSON
+)
+# remove quebras de linha e escapa aspas para JSON
+PANELS_ESC=$(printf '%s' "$PANELS_JSON" | tr -d '\n' | sed 's/"/\\"/g')
+
+# 9) Dashboard — agora com panelsJSON seguro
+create_so "dashboard" "dash-finops-visao-geral-lens-v2" "{
+  \"attributes\":{
+    \"title\":\"FinOps – Visão Geral (Lens, v2)\",
+    \"optionsJSON\":\"{\\\"useMargins\\\":true,\\\"hidePanelTitles\\\":false}\",
+    \"timeRestore\":false,\"timeTo\":\"now\",\"timeFrom\":\"now-30d\",
+    \"refreshInterval\":{\"pause\":true,\"value\":0},\"version\":1,
+    \"panelsJSON\":\"$PANELS_ESC\"
   },
-  "references":[
-    {"type":"lens","id":"lens-total-cost-v2","name":"panel_1"},
-    {"type":"lens","id":"lens-cost-trend-v2","name":"panel_2"},
-    {"type":"lens","id":"lens-sla-avg-v2","name":"panel_3"},
-    {"type":"lens","id":"lens-pareto-v2","name":"panel_4"},
-    {"type":"lens","id":"lens-cost-by-cluster-v2","name":"panel_5"},
-    {"type":"lens","id":"lens-inefficiency-table-v2","name":"panel_6"}
+  \"references\":[
+    {\"type\":\"lens\",\"id\":\"lens-total-cost-v2\",\"name\":\"panel_1\"},
+    {\"type\":\"lens\",\"id\":\"lens-cost-trend-v2\",\"name\":\"panel_2\"},
+    {\"type\":\"lens\",\"id\":\"lens-sla-avg-v2\",\"name\":\"panel_3\"},
+    {\"type\":\"lens\",\"id\":\"lens-pareto-v2\",\"name\":\"panel_4\"},
+    {\"type\":\"lens\",\"id\":\"lens-cost-by-cluster-v2\",\"name\":\"panel_5\"},
+    {\"type\":\"lens\",\"id\":\"lens-inefficiency-table-v2\",\"name\":\"panel_6\"}
   ]
-}'
+}"
+
+green "Tudo criado! Abra o dashboard: $KIBANA_URL/app/dashboards#/view/dash-finops-visao-geral-lens-v2"
